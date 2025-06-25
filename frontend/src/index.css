@@ -1,3 +1,36 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Force pure black background everywhere */
+html, body {
+  background-color: #000000 !important;
+  color: #ffffff;
+}
+
+#root {
+  background-color: #000000 !important;
+}
+
+/* Override any background colors to ensure pure black */
+.bg-base-100, .bg-base-200, .bg-base-300, .bg-secondary {
+  background-color: #000000 !important;
+}
+
+/* Scrollbar styling for pure black theme */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333333;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555555;
+}
