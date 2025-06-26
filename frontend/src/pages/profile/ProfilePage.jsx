@@ -16,8 +16,7 @@ import { formatMemberSinceDate } from "../../utils/date";
 import { useParams } from "react-router-dom";
 
 import useFollow from "../../hooks/useFollow";
-import toast from "react-hot-toast";
-
+import useUpdateUserProfile from "../../hooks/useUpdateProfileUser";
 const ProfilePage = () => {
 
 	const {data:authUser} = useQuery({queryKey: ["authUser"]});
@@ -35,6 +34,7 @@ const ProfilePage = () => {
 	
 	const {follow, isPending}= useFollow();
 
+	const {updateProfile, isUpdatingProfile} = useUpdateUserProfile();
 
 	const {data:user, isLoading, refetch, isRefetching} = useQuery({
 		queryKey: ["userProfile", username],
@@ -51,40 +51,6 @@ const ProfilePage = () => {
 			}
 		},
 
-	});
-
-	const {mutate: updateProfile, isPending: isUpdatingProfile} = useMutation({
-		mutationFn: async () => {
-			try {
-				const res = await fetch(`/api/users/update`, {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify({
-						coverImg,
-						profileImg,
-					}),
-				});
-				const data = await res.json();
-				if (!res.ok) {
-					throw new Error(data.error || "Something went wrong");
-				}
-				return data;
-			} catch (error) {
-				throw new Error(error.message);
-			}
-		},
-		onSuccess: () => {
-			toast.success("Profile updated successfully");
-			Promise.all([
-				queryClient.invalidateQueries({queryKey: ["authUser"]}),
-				queryClient.invalidateQueries({queryKey: ["userProfile", username]}),
-			]);
-		},
-		onError: (error) => {
-			toast.error(error.message);
-		}
 	});
 
 	const isMyProfile = authUser?.username === username;
@@ -184,7 +150,14 @@ const ProfilePage = () => {
 								{(coverImg || profileImg) && (
 									<button
 										className='btn btn-primary rounded-full btn-sm text-white px-4 ml-2'
-										onClick={() => updateProfile()}
+										onClick={async () => {
+											await updateProfile({
+												...(coverImg && { coverImg }),
+												...(profileImg && { profileImg })
+											});
+											setCoverImg(null);
+											setProfileImg(null);
+										}}
 										disabled={isUpdatingProfile}
 									>
 										{isUpdatingProfile ? "Updating..." : "Update"}

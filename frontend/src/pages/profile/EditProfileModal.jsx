@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import toast from "react-hot-toast";
 import { useParams } from "react-router-dom";
+import useUpdateUserProfile from "../../hooks/useUpdateProfileUser";
 
 const EditProfileModal = ({authUser}) => {
 	const [formData, setFormData] = useState({
@@ -18,40 +18,7 @@ const EditProfileModal = ({authUser}) => {
 
 	const {username} = useParams();
 
-	const {mutate: updateProfile, isPending: isUpdatingProfile} = useMutation({
-		mutationFn: async () => {
-			try {
-				console.log("Sending formData:", formData);
-				const res = await fetch(`/api/users/update`, {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify(formData),
-				});
-				const data = await res.json();
-				console.log("Response:", data);
-				if (!res.ok) {
-					throw new Error(data.error || "Something went wrong");
-				}
-				return data;
-			} catch (error) {
-				console.error("Update error:", error);
-				throw new Error(error.message);
-			}
-		},onSuccess: () => {
-			toast.success("Profile updated successfully");
-			Promise.all([
-				queryClient.invalidateQueries({queryKey: ["authUser"]}),
-				queryClient.invalidateQueries({queryKey: ["userProfile", username]}),
-			]);
-			// Close modal after successful update
-			document.getElementById("edit_profile_modal").close();
-		},
-			onError: (error) => {
-				toast.error(error.message);
-			}
-		});
+	const {updateProfile, isUpdatingProfile} = useUpdateUserProfile();
 
 	const handleInputChange = (e) => {
 		setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -84,9 +51,10 @@ const EditProfileModal = ({authUser}) => {
 					<h3 className='font-bold text-lg my-3'>Update Profile</h3>
 					<form
 						className='flex flex-col gap-4'
-						onSubmit={(e) => {
+						onSubmit={async (e) => {
 							e.preventDefault();
-							updateProfile();
+							await updateProfile(formData);
+							document.getElementById("edit_profile_modal").close();
 						}}
 					>
 						<div className='flex flex-wrap gap-2'>
