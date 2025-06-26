@@ -1,5 +1,5 @@
 {
-  "name": "twitter-clone",
+  "name": "social-media",
   "version": "1.0.0",
   "main": "backend/server.js",
   "scripts": {
