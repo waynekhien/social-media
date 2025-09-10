@@ -1,7 +1,8 @@
 import HomePage from "./pages/home/HomePage";
 import LoginPage from "./pages/auth/login/LoginPage";
 import SignUpPage from "./pages/auth/signup/SignUpPage";
-import { Routes, Route, Navigate } from "react-router-dom";
+import MessagesPage from "./pages/message/MessagesPage";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Sidebar from "./components/common/Sidebar";
 import RightPanel from "./components/common/RightPanel";
 import NotificationPage from "./pages/notification/NotificationPage";
@@ -9,8 +10,11 @@ import ProfilePage from "./pages/profile/ProfilePage";
 import { Toaster } from "react-hot-toast";
 import { useQuery } from "@tanstack/react-query";
 import LoadingSpinner from "./components/common/LoadingSpinner";
+import { SocketContextProvider } from "./context/SocketContext";
 
 export default function App() {
+  const location = useLocation();
+  
   const {data:authUser, isLoading} = useQuery({
     queryKey: ["authUser"],
     queryFn: async () => {
@@ -38,18 +42,25 @@ export default function App() {
     )
   }
 
+  // Kiểm tra xem có đang ở trang Messages không
+  const isMessagesPage = location.pathname === '/messages';
+
   return (
     <div className='flex max-w-6xl mx-auto'>
-      {/* Common component , bc it's not wrapped with Routes*/}
-      {authUser && <Sidebar/>}
-      <Routes>
-				<Route path='/' element={authUser ? <HomePage /> : <Navigate to='/login' />} />
-				<Route path='/login' element={!authUser ? <LoginPage /> : <Navigate to='/' />} />
-				<Route path='/signup' element={!authUser ? <SignUpPage /> : <Navigate to='/' />} />
-				<Route path='/notifications' element={authUser ? <NotificationPage /> : <Navigate to='/login' />} />
-				<Route path='/profile/:username' element={authUser ? <ProfilePage /> : <Navigate to='/login' />} />
-      </Routes>
-      {authUser && <RightPanel/>}
+      <SocketContextProvider>
+        {/* Common component , bc it's not wrapped with Routes*/}
+        {authUser && <Sidebar/>}
+        <Routes>
+					<Route path='/' element={authUser ? <HomePage /> : <Navigate to='/login' />} />
+					<Route path='/login' element={!authUser ? <LoginPage /> : <Navigate to='/' />} />
+					<Route path='/signup' element={!authUser ? <SignUpPage /> : <Navigate to='/' />} />
+					<Route path='/messages' element={authUser ? <MessagesPage /> : <Navigate to='/login' />} />
+					<Route path='/notifications' element={authUser ? <NotificationPage /> : <Navigate to='/login' />} />
+					<Route path='/profile/:username' element={authUser ? <ProfilePage /> : <Navigate to='/login' />} />
+        </Routes>
+        {/* Ẩn RightPanel khi ở trang Messages */}
+        {authUser && !isMessagesPage && <RightPanel/>}
+      </SocketContextProvider>
       <Toaster />
     </div>
   );

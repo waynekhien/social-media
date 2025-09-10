@@ -7,8 +7,10 @@ import authRouter from "./routes/auth.route.js";
 import userRouter from "./routes/user.route.js";
 import postRouter from "./routes/post.route.js";
 import notificationRouter from "./routes/notification.route.js";
+import messageRouter from "./routes/message.route.js";
 
 import connectMongoDB from "./db/connectMongoDB.js";
+import { app, server } from "./lib/socket.js";
 
 dotenv.config();
 cloudinary.config({
@@ -17,7 +19,6 @@ cloudinary.config({
     api_secret : process.env.CLOUDINARY_API_SECRET
 });
 
-const app = express();
 const PORT = process.env.PORT || 5000;
 
 console.log(process.env.MONGO_URI);
@@ -31,9 +32,10 @@ app.use("/api/auth", authRouter);
 app.use("/api/users", userRouter);
 app.use("/api/posts", postRouter);
 app.use("/api/notifications", notificationRouter);
+app.use("/api/messages", messageRouter);
 
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Server started on port ${PORT}`);
     connectMongoDB();
 });

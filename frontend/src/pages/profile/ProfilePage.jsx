@@ -1,5 +1,5 @@
 import { use, useRef, useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import Posts from "../../components/common/Posts";
 import ProfileHeaderSkeleton from "../../components/skeletons/ProfileHeaderSkeleton";
@@ -11,6 +11,7 @@ import { FaArrowLeft } from "react-icons/fa6";
 import { IoCalendarOutline } from "react-icons/io5";
 import { FaLink } from "react-icons/fa";
 import { MdEdit } from "react-icons/md";
+import { AiFillMessage } from "react-icons/ai";
 import { QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatMemberSinceDate } from "../../utils/date";
 import { useParams } from "react-router-dom";
@@ -18,6 +19,7 @@ import { useParams } from "react-router-dom";
 import useFollow from "../../hooks/useFollow";
 import useUpdateUserProfile from "../../hooks/useUpdateProfileUser";
 const ProfilePage = () => {
+	const navigate = useNavigate();
 
 	const {data:authUser} = useQuery({queryKey: ["authUser"]});
 
@@ -57,6 +59,17 @@ const ProfilePage = () => {
 
 	const memberSinceDate = formatMemberSinceDate(user?.createdAt);
 	const amIFollowing = authUser?.following.includes(user?._id);
+	
+	// Kiểm tra xem có thể nhắn tin không (cả hai follow nhau)
+	const canMessage = user && authUser && 
+		authUser.following.includes(user._id) && 
+		user.following.includes(authUser._id);
+
+	const handleMessageClick = () => {
+		if (canMessage) {
+			navigate('/messages', { state: { startConversationWith: user._id } });
+		}
+	};
 
 	const handleImgChange = (e, state) => {
 		const file = e.target.files[0];
@@ -135,17 +148,41 @@ const ProfilePage = () => {
 									</div>
 								</div>
 							</div>
-							<div className='flex justify-end px-4 mt-5'>
+							<div className='flex justify-end px-4 mt-5 gap-2'>
 								{isMyProfile && <EditProfileModal authUser={authUser} />}
 								{!isMyProfile && (
-									<button
-										className='btn btn-outline rounded-full btn-sm'
-										onClick={() => follow(user?._id)}
-									>
-										{isPending && "Loading..."}
-										{!isPending && amIFollowing && "Unfollow"}
-										{!isPending && !amIFollowing && "Follow"}
-									</button>
+									<>
+										<button
+											className='btn btn-outline rounded-full btn-sm'
+											onClick={() => follow(user?._id)}
+										>
+											{isPending && "Loading..."}
+											{!isPending && amIFollowing && "Unfollow"}
+											{!isPending && !amIFollowing && "Follow"}
+										</button>
+										
+										{canMessage && (
+											<button
+												className='btn btn-outline rounded-full btn-sm'
+												onClick={handleMessageClick}
+												title="Send Message"
+											>
+												<AiFillMessage className="w-4 h-4" />
+												Message
+											</button>
+										)}
+										
+										{!canMessage && amIFollowing && user?.following.includes(authUser._id) === false && (
+											<button
+												className='btn btn-outline rounded-full btn-sm opacity-50 cursor-not-allowed'
+												disabled
+												title="You can only message users who follow you back"
+											>
+												<AiFillMessage className="w-4 h-4" />
+												Message
+											</button>
+										)}
+									</>
 								)}
 								{(coverImg || profileImg) && (
 									<button
