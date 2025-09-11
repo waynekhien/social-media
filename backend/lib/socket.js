@@ -7,8 +7,13 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
 	cors: {
-		origin: ["http://localhost:3000"],
+		origin: [
+			"http://localhost:3000",
+			"https://k-social-1d7ohrbvd-khien23092003-gmailcoms-projects.vercel.app",
+			"https://k-social.vercel.app"
+		],
 		methods: ["GET", "POST"],
+		credentials: true
 	},
 });
 

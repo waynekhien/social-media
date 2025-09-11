@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
+import cors from "cors";
 import { v2 as cloudinary } from "cloudinary";
 
 import authRouter from "./routes/auth.route.js";
@@ -26,6 +27,15 @@ console.log(process.env.MONGO_URI);
 
 app.use(express.json({limit : "5mb"}));
 app.use(express.urlencoded({extended : true}));
+
+app.use(cors({
+    origin: [
+        "http://localhost:3000",
+        "https://k-social-1d7ohrbvd-khien23092003-gmailcoms-projects.vercel.app",
+        "https://k-social.vercel.app"
+    ],
+    credentials: true
+}));
 
 app.use(cookieParser());
 
