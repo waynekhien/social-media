@@ -1,7 +1,7 @@
 import Post from "../models/post.model.js";
 import User from "../models/user.model.js";
-import {v2 as cloudinary} from "cloudinary";
 import Notification from "../models/notification.model.js";
+import {v2 as cloudinary} from "cloudinary";
 
 export const createPost = async (req, res) => {
     try {
@@ -137,12 +137,24 @@ export const likeUnlikePost = async (req, res) => {
 
 export const getAllPosts = async (req, res) => {
     try {
-        const posts = await Post.find().sort({createAt : -1}).populate({
+        const posts = await Post.find().sort({createdAt : -1}).populate({
             path : "user",
             select : "-password"
         }).populate({
             path : "comments.user",
             select : "-password"
+        }).populate({
+            path: "originalPost",
+            populate: [
+                {
+                    path: "user",
+                    select: "-password"
+                },
+                {
+                    path: "comments.user", 
+                    select: "-password"
+                }
+            ]
         });
 
         if(posts.length === 0) {
@@ -170,6 +182,12 @@ export const getLikedPosts = async (req, res) => {
         }).populate({
             path : "comments.user",
             select : "-password"
+        }).populate({
+            path: "originalPost",
+            populate: {
+                path: "user",
+                select: "-password"
+            }
         });
 
         res.status(200).json(likedPosts)
@@ -196,6 +214,13 @@ export const getFollowingPosts = async (req, res) => {
 			.populate({
 				path: "comments.user",
 				select: "-password",
+			})
+			.populate({
+				path: "originalPost",
+				populate: {
+					path: "user",
+					select: "-password"
+				}
 			});
 
 		res.status(200).json(feedPosts);
@@ -218,6 +243,12 @@ export const getUserPosts = async (req, res) => {
         }).populate({
             path : "comments.user",
             select : "-password"
+        }).populate({
+            path: "originalPost",
+            populate: {
+                path: "user",
+                select: "-password"
+            }
         });
 
         res.status(200).json(posts);
@@ -226,3 +257,63 @@ export const getUserPosts = async (req, res) => {
         res.status(500).json({error : "Internal server error"});
     }
 }
+
+export const repostPost = async (req, res) => {
+    try {
+        const { id: postId } = req.params;
+        const { repostComment } = req.body;
+        const userId = req.user._id;
+
+        // Kiểm tra post có tồn tại
+        const originalPost = await Post.findById(postId);
+        if (!originalPost) {
+            return res.status(404).json({ error: "Post not found" });
+        }
+
+        // Kiểm tra user đã repost chưa
+        const alreadyReposted = originalPost.reposts.includes(userId);
+        if (alreadyReposted) {
+            // Unrepost - xóa repost
+            await Post.updateOne({ _id: postId }, { $pull: { reposts: userId } });
+            
+            // Xóa repost post
+            await Post.deleteOne({ 
+                user: userId, 
+                isRepost: true, 
+                originalPost: postId 
+            });
+
+            const updatedReposts = originalPost.reposts.filter(id => id.toString() !== userId.toString());
+            res.status(200).json({ message: "Post unreposted successfully", reposts: updatedReposts });
+        } else {
+            // Repost - thêm repost
+            originalPost.reposts.push(userId);
+            await originalPost.save();
+
+            // Tạo repost post mới
+            const repost = new Post({
+                user: userId,
+                isRepost: true,
+                originalPost: postId,
+                repostComment: repostComment || ""
+            });
+
+            await repost.save();
+
+            // Tạo notification cho người tạo post gốc
+            if (originalPost.user.toString() !== userId.toString()) {
+                const notification = new Notification({
+                    type: "repost",
+                    from: userId,
+                    to: originalPost.user
+                });
+                await notification.save();
+            }
+
+            res.status(200).json({ message: "Post reposted successfully", reposts: originalPost.reposts });
+        }
+    } catch (error) {
+        console.log("Error in repostPost controller: ", error.message);
+        res.status(500).json({ error: "Internal server error" });
+    }
+};

@@ -55,8 +55,9 @@ const Post = ({ post }) => {
 
 	const {mutate:likePost, isPending:isLiking} = useMutation({
 		mutationFn: async() => {
+			const targetPostId = displayPost?._id || currentPost._id;
 			try {
-				const res = await fetch(`/api/posts/like/${currentPost._id}`, {
+				const res = await fetch(`/api/posts/like/${targetPostId}`, {
 					method : "POST",
 				});
 
@@ -120,22 +121,77 @@ const Post = ({ post }) => {
 				throw new Error(error);
 			}
 		},
-		onSuccess: () => {
-			toast.success("Comment added successfully");
+		onSuccess : () => {
+			toast.success("Comment posted successfully");
 			setComment("");
 			queryClient.invalidateQueries({queryKey: ["posts"]});
 		},
-		onError: (error)=>{
-			toast.error(error.message)
+		onError : (error) => {
+			toast.error(error.message);
 		}
 	});
 
-	const postOwner = currentPost.user;
-	const isLiked = currentPost.likes.includes(authUser?._id || "");
+	const {mutate:repostPost, isPending:isReposting} = useMutation({
+		mutationFn: async () => {
+			const targetPostId = displayPost?._id || currentPost._id;
+			try {
+				const res = await fetch(`/api/posts/repost/${targetPostId}`, {
+					method : "POST",
+					headers : {
+						"Content-Type": "application/json"
+					},
+					body : JSON.stringify({repostComment: ""})
+				});
+				
+				if(!res.ok) {
+					const errorText = await res.text();
+					throw new Error(errorText || "Something went wrong");
+				}
+				
+				const data = await res.json();
+				return data;
+			} catch (error) {
+				console.error("Repost error:", error);
+				throw new Error(error.message || error);
+			}
+		},
+		onSuccess : (data) => {
+			// Update currentPost immediately
+			setCurrentPost(prev => ({
+				...prev,
+				reposts: data.reposts
+			}));
+			
+			// Also update query cache  
+			queryClient.setQueryData(["posts"], (old) => {
+				if (!old || !Array.isArray(old)) return old;
+				return old.map(p => {
+					if (p._id === currentPost._id) {
+						return {
+							...p,
+							reposts: data.reposts,
+						};
+					}
+					return p;
+				});
+			});
+		},
+		onError : (error) => {
+			toast.error(error.message);
+		}
+	});
 
-	const isMyPost = authUser?._id === currentPost.user?._id;
+	// Xác định post để hiển thị (original hoặc repost)
+	const displayPost = currentPost.isRepost ? currentPost.originalPost : currentPost;
+	const repostUser = currentPost.isRepost ? currentPost.user : null;
+	
+	const postOwner = displayPost?.user || currentPost.user;
+	const isLiked = (displayPost?.likes || currentPost.likes).includes(authUser?._id || "");
+	const isReposted = (displayPost?.reposts || currentPost.reposts)?.includes(authUser?._id || "") || false;
 
-	const formattedDate = formatPostDate(currentPost.createdAt);
+	const isMyPost = authUser?._id === postOwner?._id;
+
+	const formattedDate = formatPostDate(displayPost?.createdAt || currentPost.createdAt);
 
 
 	const handleDeletePost = () => {
@@ -152,16 +208,30 @@ const Post = ({ post }) => {
 	const handleLikePost = () => {
 		if (isLiking) return;
 		
-		// Optimistic update for immediate UI feedback
-		const isCurrentlyLiked = currentPost.likes.includes(authUser._id);
-		const newLikes = isCurrentlyLiked 
-			? currentPost.likes.filter(id => id !== authUser._id)
-			: [...currentPost.likes, authUser._id];
+		const targetPostId = displayPost?._id || currentPost._id;
+		const targetPost = displayPost || currentPost;
 		
-		setCurrentPost(prev => ({
-			...prev,
-			likes: newLikes
-		}));
+		// Optimistic update for immediate UI feedback
+		const isCurrentlyLiked = targetPost.likes.includes(authUser._id);
+		const newLikes = isCurrentlyLiked 
+			? targetPost.likes.filter(id => id !== authUser._id)
+			: [...targetPost.likes, authUser._id];
+		
+		setCurrentPost(prev => {
+			if (prev.isRepost) {
+				return {
+					...prev,
+					originalPost: {
+						...prev.originalPost,
+						likes: newLikes
+					}
+				};
+			}
+			return {
+				...prev,
+				likes: newLikes
+			};
+		});
 		
 		// Trigger animation
 		setIsAnimatingLike(true);
@@ -171,9 +241,29 @@ const Post = ({ post }) => {
 		likePost();
 	};
 
+	const handleRepost = () => {
+		if (isReposting) return;
+		const targetPostId = displayPost?._id || currentPost._id;
+		repostPost();
+	};
+
 	return (
-		<>
-			<div className='flex gap-2 items-start p-4 border-b border-gray-700'>
+		<div className='border-b border-gray-700'>
+			{/* Repost Header */}
+			{repostUser && (
+				<div className='flex items-center gap-2 px-4 pt-3 pb-2 text-gray-500 text-sm'>
+					<div className='ml-10'> {/* Align with avatar below */}
+						<BiRepost className='w-4 h-4 inline mr-2' />
+						<Link to={`/profile/${repostUser.username}`} className='hover:text-white font-semibold'>
+							{repostUser.fullName}
+						</Link>
+						<span className='ml-1'>reposted</span>
+					</div>
+				</div>
+			)}
+			
+			{/* Main Post Content */}
+			<div className='flex gap-2 items-start p-4'>
 				<div className='avatar'>
 					<Link to={`/profile/${postOwner.username}`} className='w-8 rounded-full overflow-hidden'>
 						<img src={postOwner.profileImg || "/avatar-placeholder.png"} />
@@ -199,10 +289,15 @@ const Post = ({ post }) => {
 						)}
 					</div>
 					<div className='flex flex-col gap-3 overflow-hidden'>
-						<span>{currentPost.text}</span>
-						{currentPost.img && (
+						{/* Repost comment */}
+						{currentPost.isRepost && currentPost.repostComment && (
+							<span className='text-gray-300 mb-2'>{currentPost.repostComment}</span>
+						)}
+						
+						<span>{displayPost?.text || currentPost.text}</span>
+						{(displayPost?.img || currentPost.img) && (
 							<img
-								src={currentPost.img}
+								src={displayPost?.img || currentPost.img}
 								className='h-80 object-contain rounded-lg border border-gray-700'
 								alt=''
 							/>
@@ -216,7 +311,7 @@ const Post = ({ post }) => {
 							>
 								<FaRegComment className='w-4 h-4  text-slate-500 group-hover:text-sky-400' />
 								<span className='text-sm text-slate-500 group-hover:text-sky-400'>
-									{currentPost.comments.length}
+									{(displayPost?.comments || currentPost.comments).length}
 								</span>
 							</div>
 							{/* We're using Modal Component from DaisyUI */}
@@ -273,9 +368,18 @@ const Post = ({ post }) => {
 									<button className='outline-none'>close</button>
 								</form>
 							</dialog>
-							<div className='flex gap-1 items-center group cursor-pointer'>
-								<BiRepost className='w-6 h-6  text-slate-500 group-hover:text-green-500' />
-								<span className='text-sm text-slate-500 group-hover:text-green-500'>0</span>
+							<div className='flex gap-1 items-center group cursor-pointer' onClick={handleRepost}>
+								{isReposting && <LoadingSpinner size="sm" />}
+								{!isReposting && (
+									<BiRepost className={`w-6 h-6 text-slate-500 group-hover:text-green-500 transition-colors ${
+										isReposted ? 'text-green-500' : ''
+									}`} />
+								)}
+								<span className={`text-sm text-slate-500 group-hover:text-green-500 ${
+									isReposted ? 'text-green-500' : ''
+								}`}>
+									{(displayPost?.reposts || currentPost.reposts)?.length || 0}
+								</span>
 							</div>
 							<div className='flex gap-1 items-center group cursor-pointer' onClick={handleLikePost}>
 								{isLiking && <LoadingSpinner size="sm" />}
@@ -295,7 +399,7 @@ const Post = ({ post }) => {
 										isLiked ? "text-pink-500" : ""
 									}`}
 								>
-									{currentPost.likes.length}
+									{(displayPost?.likes || currentPost.likes).length}
 								</span>
 							</div>
 						</div>
@@ -305,7 +409,7 @@ const Post = ({ post }) => {
 					</div>
 				</div>
 			</div>
-		</>
+		</div>
 	);
 };
 export default Post;

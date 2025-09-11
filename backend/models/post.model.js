@@ -30,6 +30,24 @@ const postSchema = new mongoose.Schema({
                 required : true
             }
         }
+    ],
+    // Repost fields
+    isRepost: {
+        type: Boolean,
+        default: false
+    },
+    originalPost: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Post"
+    },
+    repostComment: {
+        type: String // Comment when reposting
+    },
+    reposts: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User"
+        }
     ]
 
 }, {timestamps : true});

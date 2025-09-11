@@ -8,7 +8,8 @@ import {
     getLikedPosts, 
     getFollowingPosts, 
     commentOnPost,
-    getUserPosts
+    getUserPosts,
+    repostPost
  } from '../controllers/post.controller.js';
 
 const router = express.Router();
@@ -19,6 +20,7 @@ router.get("/following", protectRoute, getFollowingPosts);
 router.get("/user/:username", protectRoute, getUserPosts);
 router.post("/create", protectRoute, createPost);
 router.post("/like/:id", protectRoute, likeUnlikePost);
+router.post("/repost/:id", protectRoute, repostPost);
 router.post("/comment/:id", protectRoute, commentOnPost);
 router.delete("/:id", protectRoute, deletePost);
 
