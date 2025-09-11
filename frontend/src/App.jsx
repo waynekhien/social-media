@@ -2,6 +2,7 @@ import HomePage from "./pages/home/HomePage";
 import LoginPage from "./pages/auth/login/LoginPage";
 import SignUpPage from "./pages/auth/signup/SignUpPage";
 import MessagesPage from "./pages/message/MessagesPage";
+import SearchPage from "./pages/search/SearchPage";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Sidebar from "./components/common/Sidebar";
 import RightPanel from "./components/common/RightPanel";
@@ -42,8 +43,9 @@ export default function App() {
     )
   }
 
-  // Kiểm tra xem có đang ở trang Messages không
+  // Kiểm tra xem có đang ở trang Messages hoặc Search không
   const isMessagesPage = location.pathname === '/messages';
+  const isSearchPage = location.pathname === '/search';
 
   return (
     <div className='flex max-w-6xl mx-auto'>
@@ -54,12 +56,13 @@ export default function App() {
 					<Route path='/' element={authUser ? <HomePage /> : <Navigate to='/login' />} />
 					<Route path='/login' element={!authUser ? <LoginPage /> : <Navigate to='/' />} />
 					<Route path='/signup' element={!authUser ? <SignUpPage /> : <Navigate to='/' />} />
+					<Route path='/search' element={authUser ? <SearchPage /> : <Navigate to='/login' />} />
 					<Route path='/messages' element={authUser ? <MessagesPage /> : <Navigate to='/login' />} />
 					<Route path='/notifications' element={authUser ? <NotificationPage /> : <Navigate to='/login' />} />
 					<Route path='/profile/:username' element={authUser ? <ProfilePage /> : <Navigate to='/login' />} />
         </Routes>
-        {/* Ẩn RightPanel khi ở trang Messages */}
-        {authUser && !isMessagesPage && <RightPanel/>}
+        {/* Ẩn RightPanel khi ở trang Messages hoặc Search */}
+        {authUser && !isMessagesPage && !isSearchPage && <RightPanel/>}
       </SocketContextProvider>
       <Toaster />
     </div>
